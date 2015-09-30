@@ -1,0 +1,8 @@
+{services, [
+  %% NetFlow gathering service
+  {netspire_netflow, [
+  %% Bind socket to special address.
+  %% Specify inet6 instead of inet for IPv6 address family.
+  {listen, {inet, "0.0.0.0", 9999}}
+  ]},
+]}.
