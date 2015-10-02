@@ -1,48 +1,34 @@
+import sys
 import dpkt
 import socket
 import time
+import struct
+from datetime import datetime
 
-counter=0
-ipcounter=0
-tcpcounter=0
-udpcounter=0
 
-filename='../secure_data/dump_flow.pcap'
+def main(filename):
+    with open(filename, 'r') as flow_file:
+        for counter, (_, pkt) in enumerate(dpkt.pcap.Reader(flow_file)):
+            ip = dpkt.ip.IP(pkt[16:])
+            assert ip.p == dpkt.ip.IP_PROTO_UDP
+            udp_raw = bytes(ip.data.data)
 
-while True:
-    tmp1 = None
-    tmp2 = None
-    for ts, pkt in dpkt.pcap.Reader(open(filename,'r')):
-        counter += 1
-        ip = dpkt.ip.IP(pkt[16:])
+            bras_uptime_sec = socket.ntohl(struct.unpack('I', udp_raw[4:8])[0])/1000.0
 
-        if ip.p!=dpkt.ip.IP_PROTO_UDP:
-           raise Exception()
+            if counter == 0:
+                time_diff = time.time() - bras_uptime_sec
+                package_time_by_uptime = lambda x: x + time_diff
 
-        udp = ip.data
+            while time.time() < package_time_by_uptime(bras_uptime_sec):
+                time.sleep(0.1)
 
-        if tmp1 is None:
-            tmp1 = bytes(udp.data)
-            continue
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.sendto(udp_raw, ("0.0.0.0", 9996))
 
-        if tmp2 is None:
-            tmp2 = bytes(udp.data)
-            continue
+            if counter % 300 == 0:
+                print('{0}\t{1}'.format(datetime.now().strftime('%H:%M:%S'), counter))
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
-        sock.sendto(tmp1, ("0.0.0.0", 9996))
-        # time.sleep(0.05)
 
-        # exit(0)
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
-        sock.sendto(udp.data, ("0.0.0.0", 9996))
-        # time.sleep(0.05)
-
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) # UDP
-        sock.sendto(tmp2, ("0.0.0.0", 9996))
-        if divmod(counter, 300)[1] == 0:
-            time.sleep(1)
-            print counter
-        tmp1 = tmp2 = None
-    break
+if __name__ == '__main__':
+    assert len(sys.argv) == 2, u'Usage: nf_gen.py <pcap netflow dump file>'
+    main(sys.argv[1])
