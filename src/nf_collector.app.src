@@ -1,0 +1,12 @@
+{application, nf_collector,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { "nf_collector_app.erl", []}},
+  {env, []}
+ ]}.

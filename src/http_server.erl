@@ -1,40 +1,38 @@
 -module(http_server).
 
--export([start_http_server_actor/1, http_loop/2]).
+-export([start_actor/1, http_loop/2]).
 
 
-start_http_server_actor(ParentPid) ->
-    Pid = spawn(fun () -> start_http_server(ParentPid) end),
+start_actor(NfCollectorPid) ->
+    Pid = spawn(fun () -> start(NfCollectorPid) end),
     Pid.
 
-start_http_server(ParentPid) ->
+start(NfCollectorPid) ->
     {ok, Sock} = gen_tcp:listen(8080, [{active, false}]),
-    http_loop(ParentPid, Sock).
+    http_loop(NfCollectorPid, Sock).
 
 
-http_loop(ParentPid, Sock) ->
+http_loop(NfCollectorPid, Sock) ->
     {ok, Conn} = gen_tcp:accept(Sock),
-    Handler = spawn(fun () -> http_handle(ParentPid, Conn) end),
+    Handler = spawn(fun () -> http_handle(NfCollectorPid, Conn) end),
     gen_tcp:controlling_process(Conn, Handler),
-    %% try to hot code reload
+    %% try to hot code reload work after ./rebar co
     try
-        compile:file(?MODULE),
         code:purge(?MODULE),
         code:load_file(?MODULE)
     catch _ -> ok end,
-    ?MODULE:http_loop(ParentPid, Sock).
+    ?MODULE:http_loop(NfCollectorPid, Sock).
 
-http_handle(ParentPid, Conn) ->
-  ParentPid ! {get_packages_lost_count, self()},
+http_handle(NfCollectorPid, Conn) ->
+  NfCollectorPid ! {get_packages_lost_count, self()},
   {PackagesLostCount, _, PackagesReiceveCount} = receive
                         {packages_lost_count, {CountTmp, LastFlowSeqTmp, ReiceveCountTmp}} ->
                           {CountTmp, LastFlowSeqTmp, ReiceveCountTmp}
                       end,
 
-  ParentPid ! {get_abonents_speed, self()},
+  NfCollectorPid ! {get_abonents_speed, self()},
   AbonentsCount = receive
       {abonents_speed_count, AbonentsCountTmp} ->
-        lager:info("Get abonents_speed_count ~p ~n", [AbonentsCountTmp]),
         AbonentsCountTmp
     end,
   gen_tcp:send(Conn, response("<http><body><table id='myTable' class='tablesorter'>")),
