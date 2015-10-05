@@ -24,7 +24,7 @@ def main(filename):
 
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.sendto(udp_raw, ("0.0.0.0", 9996))
-
+            time.sleep(0.01)
             if counter % 300 == 0:
                 print('{0}\t{1}'.format(datetime.now().strftime('%H:%M:%S'), counter))
 

@@ -82,9 +82,19 @@ abonent_actor(Ip, InputSpeedList, OutputSpeedList) ->
           abonent_actor(Ip, InputSpeedList, OutputSpeedList)
       end;
     {send_speed, HttpPid} ->
-      MaxInput = orddict:fold(fun(_, Value, AccIn) -> lists:max([Value, AccIn]) end, 0.0, InputSpeedList),
-      MaxOutput = orddict:fold(fun(_, Value, AccIn) -> lists:max([Value, AccIn]) end, 0.0, OutputSpeedList),
-      HttpPid ! {abonent_speed, Ip, MaxInput, MaxOutput},
+      case orddict:size(InputSpeedList) of
+        0 ->
+          AvgInput = 0.0;
+        _ ->
+           AvgInput = orddict:fold(fun(_, Value, AccIn) -> Value + AccIn end, 0.0, InputSpeedList) / float(orddict:size(InputSpeedList))
+      end,
+      case orddict:size(OutputSpeedList) of
+        0 ->
+            AvgOutput = 0.0;
+        _ ->
+            AvgOutput = orddict:fold(fun(_, Value, AccIn) -> Value + AccIn end, 0.0, OutputSpeedList) / float(orddict:size(OutputSpeedList))
+      end,
+      HttpPid ! {abonent_speed, Ip, AvgInput, AvgOutput},
       abonent_actor(Ip, InputSpeedList, OutputSpeedList);
     Unknown ->
       lager:info("ERROR in abonent_actor! ~p~n", [Unknown]),
