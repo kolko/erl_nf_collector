@@ -4,7 +4,8 @@
 
 start() ->
     NfCollectorPid = nf_collector:start_actor(),
-    http_server:start_actor(NfCollectorPid),
+    register(nf_collector, NfCollectorPid),
+    http_server:start_actor(),
     receive
         {_} ->
             io:format("boop")

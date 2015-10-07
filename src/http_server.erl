@@ -1,73 +1,58 @@
 -module(http_server).
 
--export([start_actor/1, http_loop/2]).
+-export([start_actor/0, loop/1]).
+
+start_actor() ->
+  mochiweb_http:start([{'ip', "127.0.0.1"}, {port, 8080},
+                       {'loop', fun ?MODULE:loop/1}]).
+
+loop(Req) ->
+  RawPath = Req:get(raw_path),
+  {Path, _, _} = mochiweb_util:urlsplit_path(RawPath),   % get request path
+
+  case Path of                                           % respond based on path
+    "/" -> index_abon_list(Req);
+    _    -> respond(Req, <<"<p>Page not found!</p>">>)
+  end.
+
+respond(Req, Content) ->
+  Req:respond({200, [{<<"Content-Type">>, <<"text/html">>}], Content}).
 
 
-start_actor(NfCollectorPid) ->
-    Pid = spawn(fun () -> start(NfCollectorPid) end),
-    Pid.
-
-start(NfCollectorPid) ->
-    {ok, Sock} = gen_tcp:listen(8080, [{active, false}]),
-    http_loop(NfCollectorPid, Sock).
-
-
-http_loop(NfCollectorPid, Sock) ->
-    {ok, Conn} = gen_tcp:accept(Sock),
-    Handler = spawn(fun () -> http_handle(NfCollectorPid, Conn) end),
-    gen_tcp:controlling_process(Conn, Handler),
-    %% try to hot code reload work after ./rebar co
-    try
-        code:purge(?MODULE),
-        code:load_file(?MODULE)
-    catch _ -> ok end,
-    ?MODULE:http_loop(NfCollectorPid, Sock).
-
-http_handle(NfCollectorPid, Conn) ->
-  NfCollectorPid ! {get_packages_lost_count, self()},
+index_abon_list(Req) ->
+  nf_collector ! {get_packages_lost_count, self()},
   {PackagesLostCount, _, PackagesReiceveCount} = receive
                         {packages_lost_count, {CountTmp, LastFlowSeqTmp, ReiceveCountTmp}} ->
                           {CountTmp, LastFlowSeqTmp, ReiceveCountTmp}
                       end,
 
-  NfCollectorPid ! {get_abonents_speed, self()},
+  nf_collector ! {get_abonents_speed, self()},
   AbonentsCount = receive
       {abonents_speed_count, AbonentsCountTmp} ->
         AbonentsCountTmp
     end,
-  gen_tcp:send(Conn, response("<http><body><table id='myTable' class='tablesorter'>")),
+  Resp = Req:respond({200, [{<<"Content-Type">>, <<"text/html">>}], chunked}),
+  Resp:write_chunk(<<"<http><body><table id='myTable' class='tablesorter'>">>),
 
-  gen_tcp:send(Conn, write_more_data("<script type='text/javascript' src='http://tablesorter.com/jquery-latest.js'></script>")),
-  gen_tcp:send(Conn, write_more_data("<script type='text/javascript' src='http://tablesorter.com/__jquery.tablesorter.min.js'></script> ")),
-  gen_tcp:send(Conn, write_more_data("<script>$(document).ready(function(){$('#myTable').tablesorter();});</script>")),
+  Resp:write_chunk(<<"<script type='text/javascript' src='http://tablesorter.com/jquery-latest.js'></script>">>),
+  Resp:write_chunk(<<"<script type='text/javascript' src='http://tablesorter.com/__jquery.tablesorter.min.js'></script> ">>),
+  Resp:write_chunk(<<"<script>$(document).ready(function(){$('#myTable').tablesorter();});</script>">>),
 
-  gen_tcp:send(Conn, write_more_data("<thead> <tr><th>1</th><th>2</th><th>3</th></tr></thead> <tbody> ")),
-  gen_tcp:send(Conn, write_more_data(io_lib:format("<tr><td>count of abonents ~p </td><td></td><td></td></tr>", [AbonentsCount]))),
-  gen_tcp:send(Conn, write_more_data(io_lib:format("<tr><td>packages_lost_count ~p reiceve: ~p</td><td></td><td></td></tr>", [PackagesLostCount, PackagesReiceveCount]))),
-  receive_speed_list(Conn, AbonentsCount, 0.0, 0.0),
-  gen_tcp:send(Conn, write_more_data("</tbody> </table></body></http>")),
-  gen_tcp:close(Conn).
+  Resp:write_chunk(<<"<thead> <tr><th>1</th><th>2</th><th>3</th></tr></thead> <tbody> ">>),
+  Resp:write_chunk(io_lib:format("<tr><td>count of abonents ~p </td><td></td><td></td></tr>", [AbonentsCount])),
+  Resp:write_chunk(io_lib:format("<tr><td>packages_lost_count ~p reiceve: ~p</td><td></td><td></td></tr>", [PackagesLostCount, PackagesReiceveCount])),
+  receive_speed_list(Resp, AbonentsCount, 0.0, 0.0),
+  Resp:write_chunk(<<"</tbody> </table></body></http>">>),
+  Resp:write_chunk(<<>>).
 
-receive_speed_list(Conn, 0, TotalInput, TotalOutput) ->
-  TotalString = io_lib:format("<tr><td>Total:</td><td>~.4f Kbit/sec</td><td>~.4f Kbit/sec</td></tr>", [TotalInput, TotalOutput]),
-  gen_tcp:send(Conn, write_more_data(TotalString)),
-  ok;
+receive_speed_list(Resp, 0, TotalInput, TotalOutput) ->
+  Resp:write_chunk(io_lib:format("<tr><td>Total:</td><td>~.4f Kbit/sec</td><td>~.4f Kbit/sec</td></tr>", [TotalInput, TotalOutput]));
 
-receive_speed_list(Conn, AbonentsCount, TotalInput, TotalOutput) ->
+receive_speed_list(Resp, AbonentsCount, TotalInput, TotalOutput) ->
   receive
     {abonent_speed, Ip, Input, Output} ->
         NewTotalInput = TotalInput + (Input),
         NewTotalOutput = TotalOutput + (Output),
-        SpeedString = io_lib:format("<tr><td>~p</td><td>~.4f Kbit/sec</td><td>~.4f Kbit/sec</td></tr>", [iplib:long2ip(Ip), Input, Output]),
-        gen_tcp:send(Conn, write_more_data(SpeedString)),
-        receive_speed_list(Conn, AbonentsCount-1, NewTotalInput, NewTotalOutput)
+        Resp:write_chunk(io_lib:format("<tr><td>~p</td><td>~.4f Kbit/sec</td><td>~.4f Kbit/sec</td></tr>", [iplib:long2ip(Ip), Input, Output])),
+        receive_speed_list(Resp, AbonentsCount-1, NewTotalInput, NewTotalOutput)
   end.
-
-
-response(Str) ->
-  B = iolist_to_binary(Str),
-  io_lib:fwrite("HTTP/1.0 200 OK\nContent-Type: text/html\n\n~s", [B]).
-
-write_more_data(Str) ->
-  B = iolist_to_binary(Str),
-  io_lib:fwrite("~s", [B]).
