@@ -1,0 +1,5 @@
+<tr>
+    <td>{{ name }}</td>
+    <td>{{ speed_in | floatformat:4 }} Kbit/sec</td>
+    <td>{{ speed_out | floatformat:4 }} Kbit/sec</td>
+</tr>

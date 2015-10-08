@@ -1,0 +1,28 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>MochiWeb Tutorial</title>
+    <link rel="stylesheet" type="text/css" href="/style.css" media="screen">
+</head>
+<body>
+
+    <table id='myTable' class='tablesorter'>
+    <thead>
+        <tr>
+            <th>1</th>
+            <th>2</th>
+            <th>3</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>count of abonents {{ abonent_count }} </td>
+            <td></td>
+            <td></td>
+        </tr>
+        <tr>
+            <td>packages_lost_count {{ packages_lost_count }} reiceve: {{ packages_reiceve_count }}</td>
+            <td></td>
+            <td></td>
+        </tr>
