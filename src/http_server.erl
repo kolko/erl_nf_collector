@@ -16,13 +16,10 @@ loop(Req) ->
     end.
 
 index_abon_list(Req) ->
-    nf_collector ! {get_packages_lost_count, self()},
-    receive
-        {packages_lost_count, {PackagesLostCount, _, PackagesReiceveCount}} ->
-            ok
-    end,
+    {PackagesLostCount, _, PackagesReiceveCount} = nf_collector:get_packages_lost_state(),
 
-    nf_collector ! {get_abonents_speed, self()},
+    {ok} = nf_collector:abonents_speed_request(self()),
+
     receive
         {abonents_speed_count, AbonentsCount} ->
             ok

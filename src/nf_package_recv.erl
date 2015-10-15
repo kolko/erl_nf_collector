@@ -34,7 +34,7 @@ package_recv(MainPid, Socket, LostState) ->
         {ok, {Address, Port, Packet}} ->
             {ok, {Header, FlowList}} = parse_package(Packet, Address),
             NewLostState = calc_lost(LostState, Header),
-            MainPid ! {flow, FlowList, NewLostState}
+            nf_collector:send_flow_list(FlowList, NewLostState)
     end,
     package_recv(MainPid, Socket, NewLostState).
 

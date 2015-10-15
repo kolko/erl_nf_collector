@@ -3,8 +3,7 @@
 -export([start/0]).
 
 start() ->
-    NfCollectorPid = nf_collector:start_actor(),
-    register(nf_collector, NfCollectorPid),
+    nf_collector:start_link(),
     http_server:start_actor(),
     receive
         {_} ->
