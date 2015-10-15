@@ -2,8 +2,8 @@
 -behaviour(gen_server).
 
 -export([start_link/0]).
--export([send_flow_list/2, abonents_speed_request/1, get_packages_lost_count/0]).
--export([init/1, handle_call/3, handle_cast/2]).
+-export([send_flow_list/2, abonents_speed_request/1, get_packages_lost_state/0]).
+-export([init/1, handle_call/3, handle_cast/2, terminate/2, handle_info/2]).
 
 -include("netflow_v5.hrl").
 
@@ -18,7 +18,7 @@ init(_) ->
     FlowReceiverPid = nf_package_recv:start_actor(self()),
     AbonIpDict = dict:new(),
     PkgLostState = {0, -1, 0},
-    {ok, #state(abon_ip_dict=AbonIpDict, pkg_lost_state=PkgLostState, flow_receiver_pid=FlowReceiverPid)}.
+    {ok, #state{abon_ip_dict=AbonIpDict, pkg_lost_state=PkgLostState, flow_receiver_pid=FlowReceiverPid}}.
 
 %% API
 
@@ -30,13 +30,13 @@ abonents_speed_request(Pid) ->
     gen_server:cast(?MODULE, {get_abonents_speed, Pid}).
 
 get_packages_lost_state() ->
-    gen_server:call(?MODULE, get_packages_lost_count).
+    gen_server:call(?MODULE, {get_packages_lost_state}).
 
 %% OTP
 
 handle_cast({flow, FlowList, NewLostState}, State) ->
     NewAbonIpDict = process_package(State#state.abon_ip_dict, FlowList),
-    {noreply, State#state{abon_ip_dict=NewAbonIpDict, pkg_lost_state=NewLostState}}.
+    {noreply, State#state{abon_ip_dict=NewAbonIpDict, pkg_lost_state=NewLostState}};
 
 handle_cast({get_abonents_speed, Pid}, State) ->
     Pid ! {abonents_speed_count, dict:size(State#state.abon_ip_dict)},
@@ -46,12 +46,15 @@ handle_cast({get_abonents_speed, Pid}, State) ->
         State#state.abon_ip_dict),
     {noreply, State}.
 
-handle_call(get_packages_lost_state, From, State) ->
+handle_call({get_packages_lost_state}, From, State) ->
     {reply, State#state.pkg_lost_state, State}.
 
 handle_info(Msg, State) ->
     lager:info("?MODULE handle unknown message ~p~n", [Msg]),
     {noreply, State}.
+
+terminate(Reason, State) ->
+    lager:error("nf_collector terminate with reason: ~p. State: ~p~n", [Reason, State]).
 
 %% other
 
