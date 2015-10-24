@@ -3,4 +3,4 @@
 erl -noshell \
     -pa ebin ./deps/*/ebin \
     -s lager \
-    -s nf_collector_app start
+    -eval "application:start(nf_collector)"  #-s nf_collector

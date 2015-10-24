@@ -1,12 +1,9 @@
-{application, nf_collector,
- [
-  {description, ""},
-  {vsn, "1"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib
-                 ]},
-  {mod, { "nf_collector_app.erl", []}},
-  {env, []}
- ]}.
+{application, nf_collector, [
+    {vsn, "0.1.0"},
+    {mod, {nf_collector, []}},
+    {env, [
+        {nf_port, 9996},
+        {http_web_port, 8080},
+        {http_web_bind, "0.0.0.0"}
+    ]}
+]}.

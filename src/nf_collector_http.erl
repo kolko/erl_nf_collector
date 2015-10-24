@@ -1,9 +1,11 @@
--module(http_server).
+-module(nf_collector_http).
 
--export([start_actor/0, loop/1]).
+-export([start_link/0, loop/1]).
 
-start_actor() ->
-    mochiweb_http:start([{'ip', "127.0.0.1"}, {port, 8080},
+start_link() ->
+    {ok, Port} = application:get_env(http_web_port),
+    {ok, Ip} = application:get_env(http_web_bind),
+    mochiweb_http:start_link([{'ip', Ip}, {port, Port},
                        {'loop', fun ?MODULE:loop/1}]).
 
 loop(Req) ->
@@ -16,9 +18,9 @@ loop(Req) ->
     end.
 
 index_abon_list(Req) ->
-    {PackagesLostCount, _, PackagesReiceveCount} = nf_collector:get_packages_lost_state(),
+    {PackagesLostCount, _, PackagesReiceveCount} = nf_collector_flow:get_packages_lost_state(),
 
-    nf_collector:abonents_speed_request(self()),
+    nf_collector_flow:abonents_speed_request(self()),
 
     receive
         {abonents_speed_count, AbonentsCount} ->
